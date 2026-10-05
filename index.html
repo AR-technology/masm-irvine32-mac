@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MASM 32 + Irvine32 Assembly Lab Studio</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Main App Header & Toolbar -->
+    <header class="app-header">
+        <div class="logo-section">
+            <span class="logo-badge">x86 MASM</span>
+            <span class="app-title">Irvine32 Lab Studio (macOS)</span>
+        </div>
+
+        <div class="toolbar-controls">
+            <!-- Lab Templates -->
+            <select id="template-select" class="select-control" title="Load sample lab templates">
+                <option value="" disabled>-- Select Lab / Template --</option>
+            </select>
+
+            <!-- Action Buttons -->
+            <button id="btn-build" class="btn btn-primary" title="Assemble & Link (F7 / Ctrl+B)">
+                <span class="btn-icon">🔨</span> Build (F7)
+            </button>
+
+            <button id="btn-run" class="btn btn-success" title="Run / Continue (F5)">
+                <span class="btn-icon">▶</span> Run (F5)
+            </button>
+
+            <button id="btn-step" class="btn btn-warning" title="Step Next Instruction (F10)">
+                <span class="btn-icon">⏭</span> Step (F10)
+            </button>
+
+            <button id="btn-pause" class="btn" title="Pause execution" disabled>
+                <span class="btn-icon">⏸</span> Pause
+            </button>
+
+            <button id="btn-reset" class="btn" title="Reset CPU state and memory (Shift+F5)">
+                <span class="btn-icon">🔄</span> Reset
+            </button>
+
+            <!-- Run Speed Throttle -->
+            <select id="speed-select" class="select-control" title="Execution animation speed">
+                <option value="150">Speed: Slow</option>
+                <option value="50" selected>Speed: Normal</option>
+                <option value="10">Speed: Fast</option>
+                <option value="0">Speed: Instant</option>
+            </select>
+
+            <!-- File Management -->
+            <button id="btn-download" class="btn" title="Download main.asm for submission">
+                <span class="btn-icon">💾</span> Save .asm
+            </button>
+
+            <button id="btn-open-file" class="btn" title="Open .asm file from disk">
+                <span class="btn-icon">📂</span> Open
+            </button>
+            <input type="file" id="file-input" accept=".asm,.txt" style="display: none;">
+
+            <span id="status-badge" class="status-badge">Ready</span>
+        </div>
+    </header>
+
+    <!-- Main Workspace Area -->
+    <main class="main-workspace">
+        
+        <!-- Left: Code Editor Container -->
+        <section class="panel editor-panel">
+            <div class="panel-header">
+                <span>main.asm</span>
+                <span style="font-size: 11px; text-transform: none; color: #888;">Click gutter for breakpoints (●)</span>
+            </div>
+            <div class="panel-body" id="editor-container"></div>
+        </section>
+
+        <!-- Right: Registers, Flags, Data Memory & Stack Inspector -->
+        <aside class="panel inspector-panel">
+            
+            <!-- Registers Section -->
+            <div class="section-box">
+                <div class="section-title">
+                    <span>CPU Registers (32-bit)</span>
+                    <button id="btn-toggle-hex-dec" class="btn" style="padding: 2px 6px; font-size: 10px;">Mode: Hex</button>
+                </div>
+                <div class="registers-grid">
+                    <div class="reg-cell" id="cell-eax"><span class="reg-name">EAX</span><span class="reg-val" id="reg-eax">00000000h</span></div>
+                    <div class="reg-cell" id="cell-ebx"><span class="reg-name">EBX</span><span class="reg-val" id="reg-ebx">00000000h</span></div>
+                    <div class="reg-cell" id="cell-ecx"><span class="reg-name">ECX</span><span class="reg-val" id="reg-ecx">00000000h</span></div>
+                    <div class="reg-cell" id="cell-edx"><span class="reg-name">EDX</span><span class="reg-val" id="reg-edx">00000000h</span></div>
+                    <div class="reg-cell" id="cell-esi"><span class="reg-name">ESI</span><span class="reg-val" id="reg-esi">00000000h</span></div>
+                    <div class="reg-cell" id="cell-edi"><span class="reg-name">EDI</span><span class="reg-val" id="reg-edi">00000000h</span></div>
+                    <div class="reg-cell" id="cell-ebp"><span class="reg-name">EBP</span><span class="reg-val" id="reg-ebp">0012FFF0h</span></div>
+                    <div class="reg-cell" id="cell-esp"><span class="reg-name">ESP</span><span class="reg-val" id="reg-esp">0012FFC4h</span></div>
+                    <div class="reg-cell" id="cell-eip" style="grid-column: span 2;"><span class="reg-name">EIP (Instruction Pointer)</span><span class="reg-val" id="reg-eip">00401000h</span></div>
+                </div>
+            </div>
+
+            <!-- Flags Section -->
+            <div class="section-box">
+                <div class="section-title">Status Flags</div>
+                <div class="flags-row">
+                    <div class="flag-box"><span class="flag-name">CF (Carry)</span><span class="flag-val" id="flag-cf">0</span></div>
+                    <div class="flag-box"><span class="flag-name">ZF (Zero)</span><span class="flag-val" id="flag-zf">0</span></div>
+                    <div class="flag-box"><span class="flag-name">SF (Sign)</span><span class="flag-val" id="flag-sf">0</span></div>
+                    <div class="flag-box"><span class="flag-name">OF (Ovrfl)</span><span class="flag-val" id="flag-of">0</span></div>
+                    <div class="flag-box"><span class="flag-name">PF (Parity)</span><span class="flag-val" id="flag-pf">0</span></div>
+                    <div class="flag-box"><span class="flag-name">AF (Aux)</span><span class="flag-val" id="flag-af">0</span></div>
+                </div>
+            </div>
+
+            <!-- Data Variables Inspector -->
+            <div class="section-box" style="flex: 1; min-height: 140px; overflow-y: auto;">
+                <div class="section-title">Memory &amp; Data Segment (.data)</div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Variable</th>
+                            <th>Type</th>
+                            <th>Address</th>
+                            <th>Value</th>
+                            <th>ASCII</th>
+                        </tr>
+                    </thead>
+                    <tbody id="data-variables-body">
+                        <tr><td colspan="5" style="text-align:center; color:#888;">Build code to inspect variables</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Call Stack Inspector -->
+            <div class="section-box">
+                <div class="section-title">Stack Inspector (ESP)</div>
+                <div id="stack-list" class="stack-list">
+                    <div class="stack-item empty">Stack is empty</div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Bottom: Output Terminal & Diagnostics -->
+        <section class="bottom-panel">
+            <div class="tabs-header">
+                <button class="tab-btn active" data-tab="tab-console">Console Output (Irvine32 Output &amp; Stdin)</button>
+                <button class="tab-btn" data-tab="tab-build">Build &amp; Assembler Diagnostics</button>
+                <button id="btn-clear-console" class="btn" style="margin-left: auto; margin-right: 8px; padding: 2px 8px; font-size: 11px;">Clear Console</button>
+            </div>
+
+            <div class="tab-content">
+                <!-- Console I/O Tab -->
+                <div class="tab-pane active" id="tab-console">
+                    <pre id="console-output"></pre>
+                    <div class="console-input-bar" id="console-input-container">
+                        <span class="prompt-label">User Input ↵ :</span>
+                        <input type="text" id="console-input-field" placeholder="Type input and press Enter..." autocomplete="off">
+                    </div>
+                </div>
+
+                <!-- Build Log Tab -->
+                <div class="tab-pane" id="tab-build">
+                    <pre id="build-log">Ready. Click 'Build (F7)' or 'Run (F5)' to assemble main.asm</pre>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Scripts -->
+    <script src="js/x86_cpu.js"></script>
+    <script src="js/irvine32.js"></script>
+    <script src="js/masm_parser.js"></script>
+    <script src="js/templates.js"></script>
+    <script src="js/editor.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

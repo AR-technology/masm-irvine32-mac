@@ -1,0 +1,71 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "MASM: Build & Run (Current File)",
+            "type": "shell",
+            "command": "./masm",
+            "args": ["${file}"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": {
+                "owner": "masm",
+                "fileLocation": ["relative", "${workspaceFolder}"],
+                "pattern": {
+                    "regexp": "^\\s*Line\\s+(\\d+):\\s+(.*)$",
+                    "line": 1,
+                    "message": 2
+                }
+            }
+        },
+        {
+            "label": "MASM: Step-by-Step Debugger (Terminal)",
+            "type": "shell",
+            "command": "./masm",
+            "args": ["${file}", "-d"],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared",
+                "clear": true
+            }
+        },
+        {
+            "label": "MASM: Watch & Auto-Run on Save",
+            "type": "shell",
+            "command": "./masm",
+            "args": ["${file}", "-w"],
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "MASM: Open Visual Web Studio",
+            "type": "shell",
+            "command": "./masm",
+            "args": ["--gui"],
+            "isBackground": true,
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        }
+    ]
+}

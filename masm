@@ -1,0 +1,216 @@
+#!/usr/bin/env node
+/**
+ * MASM + Irvine32 CLI Toolchain & Interactive Terminal Debugger for VS Code
+ */
+
+const fs = require('fs');
+const path = require('path');
+const readline = require('readline');
+const X86CPU = require('./js/x86_cpu.js');
+const Irvine32 = require('./js/irvine32.js');
+const MasmParser = require('./js/masm_parser.js');
+
+// ANSI Color codes for rich VS Code terminal display
+const colors = {
+    reset: '\x1b[0m',
+    bold: '\x1b[1m',
+    dim: '\x1b[2m',
+    cyan: '\x1b[36m',
+    green: '\x1b[32m',
+    yellow: '\x1b[33m',
+    red: '\x1b[31m',
+    magenta: '\x1b[35m',
+    blue: '\x1b[34m',
+    bgBlue: '\x1b[44m',
+    bgYellow: '\x1b[43m\x1b[30m'
+};
+
+function formatHex(val, len = 8) {
+    return (val >>> 0).toString(16).toUpperCase().padStart(len, '0');
+}
+
+function printRegisters(cpu) {
+    const r = cpu.regs;
+    const f = cpu.flags;
+    const efl = formatHex(cpu.getEFlagsDword(), 8);
+
+    console.log(`${colors.cyan}┌────────────────────────────────── CPU REGISTERS ─────────────────────────────────┐${colors.reset}`);
+    console.log(`│  EAX=${colors.bold}${formatHex(r.EAX)}${colors.reset}  EBX=${colors.bold}${formatHex(r.EBX)}${colors.reset}  ECX=${colors.bold}${formatHex(r.ECX)}${colors.reset}  EDX=${colors.bold}${formatHex(r.EDX)}${colors.reset}  │`);
+    console.log(`│  ESI=${colors.bold}${formatHex(r.ESI)}${colors.reset}  EDI=${colors.bold}${formatHex(r.EDI)}${colors.reset}  EBP=${colors.bold}${formatHex(r.EBP)}${colors.reset}  ESP=${colors.bold}${formatHex(r.ESP)}${colors.reset}  │`);
+    console.log(`│  EIP=${colors.yellow}${formatHex(r.EIP)}${colors.reset}  EFL=${formatHex(efl)}  CF=${f.CF ? colors.red + '1' : '0'}${colors.reset} SF=${f.SF ? colors.red + '1' : '0'}${colors.reset} ZF=${f.ZF ? colors.green + '1' : '0'}${colors.reset} OF=${f.OF ? colors.red + '1' : '0'}${colors.reset} AF=${f.AF} PF=${f.PF}  │`);
+    console.log(`${colors.cyan}└──────────────────────────────────────────────────────────────────────────────────┘${colors.reset}`);
+}
+
+async function main() {
+    const args = process.argv.slice(2);
+    if (args.length === 0 || args.includes('-h') || args.includes('--help')) {
+        console.log(`
+${colors.bold}${colors.cyan}MASM 32 + Irvine32 Runner & Debugger for VS Code (macOS)${colors.reset}
+
+Usage:
+  ./masm <file.asm>           Assemble and Run the program
+  ./masm <file.asm> -d        Interactive Step-by-Step Debugger in Terminal
+  ./masm <file.asm> -w        Watch mode (auto-run on file save)
+  ./masm <file.asm> --gui     Open web studio synced with this file
+
+Examples:
+  ./masm main.asm
+  ./masm main.asm -d
+`);
+        process.exit(0);
+    }
+
+    let filePath = 'main.asm';
+    let isDebug = false;
+    let isWatch = false;
+    let isGui = false;
+
+    for (const arg of args) {
+        if (arg === '-d' || arg === '--debug') isDebug = true;
+        else if (arg === '-w' || arg === '--watch') isWatch = true;
+        else if (arg === '--gui') isGui = true;
+        else if (!arg.startsWith('-')) filePath = arg;
+    }
+
+    const resolvedPath = path.resolve(process.cwd(), filePath);
+    if (!fs.existsSync(resolvedPath)) {
+        console.error(`${colors.red}Error: File not found: ${filePath}${colors.reset}`);
+        process.exit(1);
+    }
+
+    if (isGui) {
+        // Start web server and open browser
+        const { spawn } = require('child_process');
+        console.log(`${colors.green}Starting Web Studio with ${filePath}...${colors.reset}`);
+        spawn('python3', ['server.py'], { stdio: 'inherit' });
+        return;
+    }
+
+    if (isWatch) {
+        console.log(`${colors.cyan}[Watch Mode] Watching ${filePath} for changes... (Press Ctrl+C to exit)${colors.reset}`);
+        runFile(resolvedPath, isDebug);
+        let debounce = null;
+        fs.watch(resolvedPath, () => {
+            if (debounce) clearTimeout(debounce);
+            debounce = setTimeout(() => {
+                console.log(`\n${colors.yellow}--- [File Changed: Rebuilding & Running] ---${colors.reset}\n`);
+                runFile(resolvedPath, false);
+            }, 100);
+        });
+        return;
+    }
+
+    await runFile(resolvedPath, isDebug);
+}
+
+async function runFile(filePath, isDebug) {
+    const sourceCode = fs.readFileSync(filePath, 'utf8');
+    const sourceLines = sourceCode.split('\n');
+
+    const cpu = new X86CPU();
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+
+    const terminal = {
+        write: (str) => {
+            process.stdout.write(str);
+        },
+        clear: () => {
+            console.clear();
+        },
+        setColor: () => {},
+        readLine: () => {
+            return new Promise((resolve) => {
+                rl.question('', (ans) => {
+                    resolve(ans);
+                });
+            });
+        }
+    };
+
+    const irvine = new Irvine32(cpu, terminal);
+    const parser = new MasmParser(cpu, irvine);
+
+    console.log(`${colors.dim}Assembling ${path.basename(filePath)} (MASM + Irvine32)...${colors.reset}`);
+    const buildResult = parser.assemble(sourceCode);
+
+    if (!buildResult.success) {
+        console.error(`\n${colors.red}${colors.bold}✕ Build Failed with ${buildResult.errors.length} error(s):${colors.reset}`);
+        for (const err of buildResult.errors) {
+            console.error(`  ${colors.red}Line ${err.line}:${colors.reset} ${err.message}`);
+            console.error(`  ${colors.dim}--> ${err.text.trim()}${colors.reset}`);
+        }
+        rl.close();
+        process.exit(1);
+    }
+
+    console.log(`${colors.green}✓ Build Succeeded!${colors.reset} (${buildResult.instructionsCount} instructions)\n`);
+
+    if (!isDebug) {
+        // Direct Execution Mode
+        while (!cpu.isHalted) {
+            await parser.step();
+        }
+        console.log(`\n${colors.dim}------------------------------------------------${colors.reset}`);
+        console.log(`${colors.green}Program exited with code: ${cpu.exitCode}${colors.reset}`);
+        rl.close();
+        return;
+    }
+
+    // Interactive Terminal Debugger Mode (F10 stepping in VS Code terminal)
+    console.log(`${colors.bold}${colors.yellow}=== Interactive Debugger Started ===${colors.reset}`);
+    console.log(`Commands: [Enter/s] Step Next (F10) | [c] Continue (F5) | [r] Dump Registers | [m] Inspect .data | [q] Quit\n`);
+
+    let autoContinue = false;
+
+    while (!cpu.isHalted) {
+        const curInstIdx = Math.floor((cpu.regs.EIP - parser.codeBase) / 4);
+        if (curInstIdx < 0 || curInstIdx >= parser.instructions.length) break;
+
+        const curInst = parser.instructions[curInstIdx];
+        const lineText = sourceLines[curInst.lineNum - 1] ? sourceLines[curInst.lineNum - 1].trim() : '';
+
+        if (!autoContinue) {
+            printRegisters(cpu);
+            console.log(`\n${colors.bgYellow} NEXT INSTRUCTION ${colors.reset} Line ${colors.bold}${curInst.lineNum}${colors.reset}:  ${colors.cyan}${lineText}${colors.reset}`);
+
+            const cmd = await new Promise((resolve) => {
+                rl.question(`\n${colors.bold}debug>${colors.reset} `, (ans) => resolve(ans.trim().toLowerCase()));
+            });
+
+            if (cmd === 'q') {
+                console.log('Debugging aborted.');
+                break;
+            } else if (cmd === 'c') {
+                autoContinue = true;
+            } else if (cmd === 'm') {
+                console.log(`\n${colors.cyan}--- .DATA VARIABLES ---${colors.reset}`);
+                for (const sym of parser.dataSymbols) {
+                    const val = cpu.readMem(sym.address, sym.elemSize);
+                    console.log(`  ${sym.name} (${sym.type}) @ 0x${sym.address.toString(16).toUpperCase()} = ${formatHex(val, sym.elemSize*2)}h (${val})`);
+                }
+                console.log();
+                continue; // don't step yet
+            } else if (cmd === 'r') {
+                printRegisters(cpu);
+                continue;
+            }
+        }
+
+        await parser.step();
+    }
+
+    if (cpu.isHalted) {
+        printRegisters(cpu);
+        console.log(`\n${colors.green}✓ Program execution finished with exit code ${cpu.exitCode}.${colors.reset}`);
+    }
+
+    rl.close();
+}
+
+main().catch(err => {
+    console.error(`\n${colors.red}Runtime Error:${colors.reset}`, err);
+    process.exit(1);
+});
