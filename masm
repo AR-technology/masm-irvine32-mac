@@ -43,6 +43,17 @@ function printRegisters(cpu) {
 
 async function main() {
     const args = process.argv.slice(2);
+    if (args.includes('--update') || args.includes('-u')) {
+        const { execSync } = require('child_process');
+        try {
+            console.log(`${colors.cyan}Updating MASM environment...${colors.reset}`);
+            execSync('bash update.sh', { stdio: 'inherit' });
+        } catch(e) {
+            console.error('Update failed:', e.message);
+        }
+        process.exit(0);
+    }
+
     if (args.length === 0 || args.includes('-h') || args.includes('--help')) {
         console.log(`
 ${colors.bold}${colors.cyan}MASM 32 + Irvine32 Runner & Debugger for VS Code (macOS)${colors.reset}
@@ -52,6 +63,7 @@ Usage:
   ./masm <file.asm> -d        Interactive Step-by-Step Debugger in Terminal
   ./masm <file.asm> -w        Watch mode (auto-run on file save)
   ./masm <file.asm> --gui     Open web studio synced with this file
+  ./masm --update             Fetch latest updates from GitHub
 
 Examples:
   ./masm main.asm

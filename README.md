@@ -24,24 +24,38 @@ Write your code directly in **VS Code** inside `main.asm`, build with **`Cmd + S
 
 ---
 
-## 🚀 Quick Start Guide
+## 🚀 Quick Start (For You & Your Friends)
 
-### 1. Clone or Download the Repository
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/YOUR_USERNAME/masm-irvine32-mac.git
 cd masm-irvine32-mac
 ```
 
-### 2. Open in VS Code
-Open this folder in VS Code:
+### 2. Run Automatic 1-Click Setup
 ```bash
-code .
+./setup.sh
 ```
+> **What `setup.sh` does automatically:**
+> - Checks for Node.js and auto-installs it via Homebrew if missing.
+> - Configures all file permissions.
+> - Runs health diagnostics to guarantee everything works on their Mac.
 
-### 3. Write & Run Your Code
-1. Open **`main.asm`**.
-2. Type or paste your Assembly code.
-3. Press **`Cmd + Shift + B`** (or go to **Terminal ➔ Run Build Task**).
+### 3. Open in VS Code & Start Coding!
+1. Open the folder in VS Code: `code .`
+2. Edit **`main.asm`**.
+3. Press **`Cmd + Shift + B`** to build & run!
+
+---
+
+## 🔄 Getting Future Updates
+
+Whenever you push new templates or improvements to GitHub, your friends can update everything in 1 command without losing their local code in `main.asm`:
+
+```bash
+./update.sh
+```
+*(Or in VS Code: **Terminal ➔ Run Task ➔ MASM: Update from GitHub**)*
 
 ---
 
