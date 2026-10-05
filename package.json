@@ -1,0 +1,15 @@
+{
+  "name": "masm-irvine32-lab",
+  "version": "1.0.0",
+  "description": "Cross-platform MASM x86 32-bit & Irvine32 Assembly environment for macOS, Windows, and Linux",
+  "main": "masm",
+  "scripts": {
+    "start": "node masm main.asm",
+    "debug": "node masm main.asm -d",
+    "watch": "node masm main.asm -w",
+    "test": "node test.js"
+  },
+  "keywords": ["assembly", "masm", "irvine32", "x86", "macos", "windows", "vscode"],
+  "author": "",
+  "license": "MIT"
+}
