@@ -4,8 +4,12 @@
         {
             "label": "MASM: Build & Run (Current File)",
             "type": "shell",
-            "command": "./masm",
-            "args": ["${file}"],
+            "command": "node",
+            "args": ["${workspaceFolder}/masm", "${file}"],
+            "windows": {
+                "command": "node",
+                "args": ["${workspaceFolder}\\masm", "${file}"]
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -30,8 +34,12 @@
         {
             "label": "MASM: Step-by-Step Debugger (Terminal)",
             "type": "shell",
-            "command": "./masm",
-            "args": ["${file}", "-d"],
+            "command": "node",
+            "args": ["${workspaceFolder}/masm", "${file}", "-d"],
+            "windows": {
+                "command": "node",
+                "args": ["${workspaceFolder}\\masm", "${file}", "-d"]
+            },
             "group": "test",
             "presentation": {
                 "echo": true,
@@ -44,8 +52,12 @@
         {
             "label": "MASM: Watch & Auto-Run on Save",
             "type": "shell",
-            "command": "./masm",
-            "args": ["${file}", "-w"],
+            "command": "node",
+            "args": ["${workspaceFolder}/masm", "${file}", "-w"],
+            "windows": {
+                "command": "node",
+                "args": ["${workspaceFolder}\\masm", "${file}", "-w"]
+            },
             "isBackground": true,
             "presentation": {
                 "echo": true,
@@ -57,8 +69,12 @@
         {
             "label": "MASM: Open Visual Web Studio",
             "type": "shell",
-            "command": "./masm",
-            "args": ["--gui"],
+            "command": "node",
+            "args": ["${workspaceFolder}/masm", "--gui"],
+            "windows": {
+                "command": "node",
+                "args": ["${workspaceFolder}\\masm", "--gui"]
+            },
             "isBackground": true,
             "presentation": {
                 "echo": true,
@@ -71,12 +87,56 @@
             "label": "MASM: Update from GitHub",
             "type": "shell",
             "command": "./update.sh",
+            "windows": {
+                "command": "cmd.exe",
+                "args": ["/c", "update.bat"]
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
                 "focus": true,
                 "panel": "shared"
             }
+        },
+        {
+            "label": "AI: Generate MASM & TASM Code (Offline)",
+            "type": "shell",
+            "command": "node",
+            "args": ["${workspaceFolder}/ai.js", "${input:aiPrompt}"],
+            "windows": {
+                "command": "node",
+                "args": ["${workspaceFolder}\\ai.js", "${input:aiPrompt}"]
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "AI: Interactive Shell (MASM ⇄ TASM)",
+            "type": "shell",
+            "command": "node",
+            "args": ["${workspaceFolder}/ai.js"],
+            "windows": {
+                "command": "node",
+                "args": ["${workspaceFolder}\\ai.js"]
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "aiPrompt",
+            "type": "promptString",
+            "description": "Enter problem statement (e.g. 'bubble sort array', 'check if even or odd', 'add 2 numbers')",
+            "default": "check if number is even or odd"
         }
     ]
 }

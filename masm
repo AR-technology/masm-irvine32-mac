@@ -43,6 +43,14 @@ function printRegisters(cpu) {
 
 async function main() {
     const args = process.argv.slice(2);
+    if (args.includes('--ai') || args.includes('-a')) {
+        const aiArgs = args.filter(a => a !== '--ai' && a !== '-a');
+        process.argv = [process.argv[0], path.join(__dirname, 'ai.js'), ...aiArgs];
+        const aiCli = require('./ai.js');
+        if (typeof aiCli.main === 'function') aiCli.main();
+        return;
+    }
+
     if (args.includes('--update') || args.includes('-u')) {
         const { execSync } = require('child_process');
         try {
@@ -62,12 +70,14 @@ Usage:
   ./masm <file.asm>           Assemble and Run the program
   ./masm <file.asm> -d        Interactive Step-by-Step Debugger in Terminal
   ./masm <file.asm> -w        Watch mode (auto-run on file save)
-  ./masm <file.asm> --gui     Open web studio synced with this file
+  ./masm --ai "<statement>"   🤖 Offline AI: Generate MASM & TASM code
+  ./masm --gui                Open visual web studio in browser
   ./masm --update             Fetch latest updates from GitHub
 
 Examples:
   ./masm main.asm
   ./masm main.asm -d
+  ./masm --ai "check if number is even or odd"
 `);
         process.exit(0);
     }

@@ -24,6 +24,11 @@
                 <option value="" disabled>-- Select Lab / Template --</option>
             </select>
 
+            <!-- Offline AI Assistant Button -->
+            <button id="btn-ai-assistant" class="btn btn-ai" title="Offline AI: Generate MASM & TASM code from plain English">
+                <span class="btn-icon">🤖</span> AI: MASM ⇄ TASM
+            </button>
+
             <!-- Action Buttons -->
             <button id="btn-build" class="btn btn-primary" title="Assemble & Link (F7 / Ctrl+B)">
                 <span class="btn-icon">🔨</span> Build (F7)
@@ -170,10 +175,62 @@
 
     </main>
 
+    <!-- Offline AI Assistant Modal -->
+    <div id="ai-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="modal-badge">🤖 Offline AI</span>
+                    <span>Assembly Generator: MASM (Irvine32) ⇄ TASM (8086 DOS)</span>
+                </div>
+                <button id="btn-close-ai" class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="ai-input-group">
+                    <input type="text" id="ai-prompt-input" placeholder="Type statement (e.g. 'check if even or odd', 'reverse a string', 'add 2 numbers 25 and 40')..." />
+                    <button id="btn-ai-submit" class="btn btn-primary">Generate</button>
+                </div>
+                <div class="ai-examples" id="ai-examples">
+                    <span class="examples-label">Try quick prompts:</span>
+                </div>
+                <div id="ai-result-container" class="ai-result-box" style="display: none;">
+                    <div class="ai-result-header">
+                        <div class="ai-result-title" id="ai-result-title">Title</div>
+                        <div class="ai-result-desc" id="ai-result-desc">Description</div>
+                    </div>
+                    <div class="ai-tabs-header">
+                        <button class="ai-tab active" data-tab="ai-tab-masm">📦 MASM (32-bit Irvine32)</button>
+                        <button class="ai-tab" data-tab="ai-tab-tasm">⚡ TASM (16-bit 8086 DOS)</button>
+                        <button class="ai-tab" data-tab="ai-tab-diff">💡 Differences &amp; Notes</button>
+                    </div>
+                    <div class="ai-tab-content">
+                        <div class="ai-tab-pane active" id="ai-tab-masm">
+                            <div class="ai-code-toolbar">
+                                <button id="btn-ai-load-editor" class="btn btn-success" style="padding: 3px 10px; font-size: 12px;">▶ Load into Web Editor</button>
+                                <button id="btn-ai-copy-masm" class="btn" style="padding: 3px 10px; font-size: 12px;">📋 Copy MASM</button>
+                            </div>
+                            <pre class="ai-code-block" id="ai-code-masm"></pre>
+                        </div>
+                        <div class="ai-tab-pane" id="ai-tab-tasm">
+                            <div class="ai-code-toolbar">
+                                <button id="btn-ai-copy-tasm" class="btn" style="padding: 3px 10px; font-size: 12px;">📋 Copy TASM</button>
+                            </div>
+                            <pre class="ai-code-block" id="ai-code-tasm"></pre>
+                        </div>
+                        <div class="ai-tab-pane" id="ai-tab-diff">
+                            <ul class="ai-diff-list" id="ai-diff-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="js/x86_cpu.js"></script>
     <script src="js/irvine32.js"></script>
     <script src="js/masm_parser.js"></script>
+    <script src="js/ai_generator.js"></script>
     <script src="js/templates.js"></script>
     <script src="js/editor.js"></script>
     <script src="js/app.js"></script>

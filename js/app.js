@@ -496,4 +496,155 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial draw
     updateAllPanels();
     setStatus('Ready to Code');
+
+    // ---------------------------------------------------------
+    // Offline AI Assistant (MASM ⇄ TASM) Controller
+    // ---------------------------------------------------------
+    const btnAiAssistant = document.getElementById('btn-ai-assistant');
+    const aiModal = document.getElementById('ai-modal');
+    const btnCloseAi = document.getElementById('btn-close-ai');
+    const aiPromptInput = document.getElementById('ai-prompt-input');
+    const btnAiSubmit = document.getElementById('btn-ai-submit');
+    const aiExamplesContainer = document.getElementById('ai-examples');
+    const aiResultContainer = document.getElementById('ai-result-container');
+    const aiResultTitle = document.getElementById('ai-result-title');
+    const aiResultDesc = document.getElementById('ai-result-desc');
+    const aiCodeMasm = document.getElementById('ai-code-masm');
+    const aiCodeTasm = document.getElementById('ai-code-tasm');
+    const aiDiffList = document.getElementById('ai-diff-list');
+    const btnAiLoadEditor = document.getElementById('btn-ai-load-editor');
+    const btnAiCopyMasm = document.getElementById('btn-ai-copy-masm');
+    const btnAiCopyTasm = document.getElementById('btn-ai-copy-tasm');
+
+    let currentAiResult = null;
+
+    if (btnAiAssistant && aiModal && window.AssemblyAI) {
+        // Populate Example Prompts
+        const samplePrompts = [
+            "Add two numbers 25 and 40",
+            "Check if number is even or odd",
+            "Find largest of three numbers",
+            "Calculate array sum and average",
+            "Reverse a string",
+            "Bubble sort array",
+            "Factorial of 5",
+            "Print numbers 1 to 10",
+            "Linear search in array",
+            "Star pattern 5 rows"
+        ];
+
+        samplePrompts.forEach(promptText => {
+            const pill = document.createElement('button');
+            pill.className = 'example-pill';
+            pill.textContent = promptText;
+            pill.addEventListener('click', () => {
+                aiPromptInput.value = promptText;
+                triggerAiGeneration();
+            });
+            aiExamplesContainer.appendChild(pill);
+        });
+
+        // Open / Close modal
+        btnAiAssistant.addEventListener('click', () => {
+            aiModal.style.display = 'flex';
+            aiPromptInput.focus();
+        });
+
+        btnCloseAi.addEventListener('click', () => {
+            aiModal.style.display = 'none';
+        });
+
+        aiModal.addEventListener('click', (e) => {
+            if (e.target === aiModal) aiModal.style.display = 'none';
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && aiModal.style.display === 'flex') {
+                aiModal.style.display = 'none';
+            }
+        });
+
+        // Submit Prompt
+        function triggerAiGeneration() {
+            const prompt = aiPromptInput.value.trim();
+            if (!prompt) return;
+
+            try {
+                const res = window.AssemblyAI.generate(prompt);
+                currentAiResult = res;
+
+                aiResultTitle.textContent = res.title;
+                aiResultDesc.textContent = res.analysis;
+                aiCodeMasm.textContent = res.masm;
+                aiCodeTasm.textContent = res.tasm;
+
+                // Differences
+                aiDiffList.innerHTML = '';
+                if (res.differences && res.differences.length > 0) {
+                    res.differences.forEach(diff => {
+                        const li = document.createElement('li');
+                        li.textContent = diff;
+                        aiDiffList.appendChild(li);
+                    });
+                }
+
+                aiResultContainer.style.display = 'block';
+            } catch (err) {
+                alert('Error generating code: ' + err.message);
+            }
+        }
+
+        btnAiSubmit.addEventListener('click', triggerAiGeneration);
+        aiPromptInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                triggerAiGeneration();
+            }
+        });
+
+        // Tab Switching in AI Modal
+        const aiTabs = document.querySelectorAll('.ai-tab');
+        const aiPanes = document.querySelectorAll('.ai-tab-pane');
+        aiTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                aiTabs.forEach(t => t.classList.remove('active'));
+                aiPanes.forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                const targetId = tab.getAttribute('data-tab');
+                const targetPane = document.getElementById(targetId);
+                if (targetPane) targetPane.classList.add('active');
+            });
+        });
+
+        // Load into Web Editor
+        btnAiLoadEditor.addEventListener('click', () => {
+            if (currentAiResult && currentAiResult.masm) {
+                editor.setValue(currentAiResult.masm);
+                resetAll();
+                aiModal.style.display = 'none';
+                setStatus('Loaded AI MASM Code');
+                terminal.clear();
+                terminal.write(`[AI Assistant] Loaded "${currentAiResult.title}" into main.asm\nPress F5 (Run) or F10 (Step) to execute.\n\n`);
+            }
+        });
+
+        // Copy buttons
+        btnAiCopyMasm.addEventListener('click', () => {
+            if (currentAiResult) {
+                navigator.clipboard.writeText(currentAiResult.masm).then(() => {
+                    btnAiCopyMasm.textContent = '✓ Copied!';
+                    setTimeout(() => { btnAiCopyMasm.textContent = '📋 Copy MASM'; }, 2000);
+                });
+            }
+        });
+
+        btnAiCopyTasm.addEventListener('click', () => {
+            if (currentAiResult) {
+                navigator.clipboard.writeText(currentAiResult.tasm).then(() => {
+                    btnAiCopyTasm.textContent = '✓ Copied!';
+                    setTimeout(() => { btnAiCopyTasm.textContent = '📋 Copy TASM'; }, 2000);
+                });
+            }
+        });
+    }
 });

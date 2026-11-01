@@ -12,6 +12,7 @@ Write your code directly in **VS Code** inside `main.asm`, build with **`Cmd + S
 
 ## ✨ Features
 
+- 🤖 **Offline AI Code Generator (MASM ⇄ TASM):** Type any problem statement (e.g. `check if even or odd`, `bubble sort`, `reverse a string`) and get instant, compilable code for **both 32-bit MASM (Irvine32)** and **16-bit TASM (8086 DOS)** with side-by-side differences. Runs 100% locally with zero internet or API keys required.
 - ⚡ **VS Code 1-Click Workflow:** Press `Cmd + Shift + B` to assemble and run `main.asm` directly in the VS Code terminal.
 - 🔍 **Interactive Terminal Debugger:** Run `./masm main.asm -d` to step through instructions line-by-line (like `F10` in Visual Studio) and watch CPU registers & flags update in real time.
 - 📦 **Irvine32 Standard Library Support:**
@@ -64,6 +65,9 @@ Whenever you push new templates or improvements to GitHub, your friends can upda
 | Command | Action |
 | :--- | :--- |
 | `Cmd + Shift + B` | **Build & Run** active `.asm` file in VS Code |
+| `./ai "<statement>"` | 🤖 **Generate both MASM & TASM code** offline (e.g. `./ai "bubble sort"`) |
+| `./ai "<statement>" --save` | Generate and write MASM directly into `main.asm` to run immediately |
+| `./ai` | Launch **Interactive Offline AI Chat Shell** in terminal |
 | `./masm main.asm` | Run `main.asm` from the terminal |
 | `./masm main.asm -d` | **Interactive Debugger** (Step with `Enter`, `r` to dump registers, `m` for memory) |
 | `./masm main.asm -w` | **Watch Mode** (Automatically re-runs every time you save `main.asm`) |
