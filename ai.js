@@ -159,7 +159,20 @@ function main() {
 
     for (let i = 0; i < rawArgs.length; i++) {
         const arg = rawArgs[i];
-        if (arg === '--save' || arg === '-s') {
+        if (arg === '--fix' || arg === '-f') {
+            const targetFile = rawArgs[++i] || 'main.asm';
+            const resolved = path.resolve(process.cwd(), targetFile);
+            if (!fs.existsSync(resolved)) {
+                console.log(`${c.red}File not found: ${targetFile}${c.reset}`);
+                process.exit(1);
+            }
+            const content = fs.readFileSync(resolved, 'utf8');
+            const fixed = AssemblyAI.fixTasm(content);
+            fs.writeFileSync(resolved, fixed, 'utf8');
+            console.log(`${c.green}✓ Auto-fixed TASM file: ${c.bold}${targetFile}${c.reset}`);
+            console.log(`${c.dim}  Replaced missing PrintNum with inline printing & formatted END main for DOSBox.${c.reset}\n`);
+            process.exit(0);
+        } else if (arg === '--save' || arg === '-s') {
             options.saveMasm = true;
         } else if (arg === '--masm') {
             options.masmOnly = true;
@@ -173,6 +186,7 @@ function main() {
   ./ai "<statement>"                 Generate both MASM and TASM code
   ./ai "<statement>" --save          Generate and save MASM code to main.asm
   ./ai "<statement>" --save-tasm out.asm  Save TASM code to file
+  ./ai --fix <file.asm>              Auto-fix TASM file (replaces PrintNum & fixes EOF)
   ./ai --masm "<statement>"          Output MASM code only
   ./ai --tasm "<statement>"          Output TASM code only
   ./ai                               Launch interactive shell

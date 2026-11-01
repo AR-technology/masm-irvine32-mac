@@ -646,5 +646,68 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         });
+
+        // Auto-Fix TASM Button in AI Modal
+        const btnAiFixTasm = document.getElementById('btn-ai-fix-tasm');
+        if (btnAiFixTasm) {
+            btnAiFixTasm.addEventListener('click', () => {
+                if (currentAiResult && currentAiResult.tasm) {
+                    const fixed = window.AssemblyAI.fixTasm(currentAiResult.tasm);
+                    currentAiResult.tasm = fixed;
+                    aiCodeTasm.textContent = fixed;
+                    navigator.clipboard.writeText(fixed).then(() => {
+                        btnAiFixTasm.textContent = '✓ Fixed & Copied!';
+                        setTimeout(() => { btnAiFixTasm.textContent = '🔧 Fix PrintNum / EOF'; }, 2000);
+                    });
+                }
+            });
+        }
+    }
+
+    // ---------------------------------------------------------
+    // Toolbar: Fix TASM Code Modal Controller
+    // ---------------------------------------------------------
+    const btnFixTasmCode = document.getElementById('btn-fix-tasm-code');
+    const fixModal = document.getElementById('fix-modal');
+    const btnCloseFix = document.getElementById('btn-close-fix');
+    const fixCodeInput = document.getElementById('fix-code-input');
+    const btnRunFix = document.getElementById('btn-run-fix');
+    const fixStatus = document.getElementById('fix-status');
+
+    if (btnFixTasmCode && fixModal) {
+        btnFixTasmCode.addEventListener('click', () => {
+            fixModal.style.display = 'flex';
+            fixStatus.style.display = 'none';
+            // Pre-fill with editor content if it contains TASM code
+            const currentCode = editor.getValue();
+            if (currentCode.includes('.model small') || currentCode.includes('PrintNum')) {
+                fixCodeInput.value = currentCode;
+            } else {
+                fixCodeInput.value = '';
+            }
+            fixCodeInput.focus();
+        });
+
+        btnCloseFix.addEventListener('click', () => {
+            fixModal.style.display = 'none';
+        });
+
+        fixModal.addEventListener('click', (e) => {
+            if (e.target === fixModal) fixModal.style.display = 'none';
+        });
+
+        btnRunFix.addEventListener('click', () => {
+            const raw = fixCodeInput.value.trim();
+            if (!raw) return;
+
+            const fixed = window.AssemblyAI.fixTasm(raw);
+            fixCodeInput.value = fixed;
+            navigator.clipboard.writeText(fixed).then(() => {
+                fixStatus.textContent = '✓ Fixed! Replaced PrintNum with self-contained printing and copied to clipboard.';
+                fixStatus.style.display = 'block';
+                btnRunFix.textContent = '✓ Copied to Clipboard!';
+                setTimeout(() => { btnRunFix.textContent = '🔧 Fix & Copy Code'; }, 2000);
+            });
+        });
     }
 });

@@ -34,94 +34,154 @@
         return "Hello, World!";
     }
 
-    // Standard TASM Decimal Print Helper Procedure
-    const TASM_PRINT_NUM_PROC = `
-; -------------------------------------------------------------
-; Procedure: PrintNum
-; Prints signed 16-bit integer in AX to screen via DOS INT 21h
-; -------------------------------------------------------------
-PrintNum PROC
+    // Library of Assembly Templates with dynamic parameterization
+    const TEMPLATES = [
+        // 0. User Input Math (Take 2 numbers from user and add/subtract/multiply/divide)
+        {
+            id: 'user_input_math',
+            match: (t) => /(?:take|input|read|get|ask|accept).*(?:two|2|\b)?.*(?:numbers?|digits?|values?|integers?|inputs?).*(?:sum|add|sub|diff|multipl|product|div)/i.test(t) ||
+                          /(?:sum|add|sub|difference|product|multiply).*(?:of|for|two|2)?.*(?:input|user|entered)/i.test(t) ||
+                          /(?:two|2)\s+numbers.*(?:from\s+user|by\s+user)/i.test(t),
+            generate: (prompt) => {
+                let op = "add";
+                let titleOp = "Sum";
+                let masmOp = "add eax, num2";
+                let tasmOp = "add al, num2";
+
+                if (/sub|diff|minus/i.test(prompt)) {
+                    op = "sub"; titleOp = "Difference";
+                    masmOp = "sub eax, num2";
+                    tasmOp = "sub al, num2";
+                } else if (/multipl|product|times/i.test(prompt)) {
+                    op = "mul"; titleOp = "Product";
+                    masmOp = "imul eax, num2";
+                    tasmOp = "mul num2";
+                }
+
+                return {
+                    title: `Take 2 Numbers from User and Display ${titleOp}`,
+                    analysis: `Prompts user to enter two numbers sequentially, reads them from the keyboard, computes the ${titleOp.toLowerCase()} using '${op.toUpperCase()}', and displays the result.`,
+                    masm: `INCLUDE Irvine32.inc
+
+.data
+    prompt1 BYTE "Enter first number: ", 0
+    prompt2 BYTE "Enter second number: ", 0
+    resMsg  BYTE "${titleOp} = ", 0
+    num1    DWORD ?
+    num2    DWORD ?
+
+.code
+main PROC
+    ; 1. Prompt & read first number from user
+    mov edx, OFFSET prompt1
+    call WriteString
+    call ReadInt        ; Reads signed integer into EAX
+    mov num1, eax
+
+    ; 2. Prompt & read second number from user
+    mov edx, OFFSET prompt2
+    call WriteString
+    call ReadInt        ; Reads signed integer into EAX
+    mov num2, eax
+
+    ; 3. Perform calculation
+    mov eax, num1
+    ${masmOp}
+
+    ; 4. Display result
+    mov edx, OFFSET resMsg
+    call WriteString
+    call WriteInt
+    call Crlf
+
+    exit
+main ENDP
+END main`,
+                    tasm: `.model small
+.stack 100h
+
+.data
+    prompt1 DB "Enter first number: $"
+    prompt2 DB 0Dh, 0Ah, "Enter second number: $"
+    resMsg  DB 0Dh, 0Ah, "${titleOp} = $"
+    crlf    DB 0Dh, 0Ah, '$'
+    num1    DB ?
+    num2    DB ?
+
+.code
+main PROC
+    mov ax, @data
+    mov ds, ax
+
+    ; 1. Prompt & read first digit from user
+    lea dx, prompt1
+    mov ah, 09h
+    int 21h
+
+    mov ah, 01h         ; Read char with echo
+    int 21h
+    sub al, '0'         ; Convert ASCII ('3') to numeric value (3)
+    mov num1, al
+
+    ; 2. Prompt & read second digit from user
+    lea dx, prompt2
+    mov ah, 09h
+    int 21h
+
+    mov ah, 01h         ; Read char with echo
+    int 21h
+    sub al, '0'         ; Convert ASCII ('5') to numeric value (5)
+    mov num2, al
+
+    ; 3. Perform operation
+    mov al, num1
+    ${tasmOp}
+    mov ah, 0           ; Clear AH for division (AX = result)
+
+    ; 4. Print result label
     push ax
-    push bx
-    push cx
-    push dx
-    cmp ax, 0
-    jge @@positive
-    push ax
-    mov dl, '-'
-    mov ah, 02h
+    lea dx, resMsg
+    mov ah, 09h
     int 21h
     pop ax
-    neg ax
-@@positive:
-    mov cx, 0
-    mov bx, 10
-@@div_loop:
-    mov dx, 0
-    div bx
-    push dx
-    inc cx
-    cmp ax, 0
-    jne @@div_loop
-@@print_loop:
-    pop dx
+
+    ; 5. Print decimal result (handles 1-digit and 2-digit results 0-99)
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
+
+    cmp bl, 0           ; Skip leading zero if result < 10
+    je print_units
+    mov dl, bl
     add dl, '0'
     mov ah, 02h
     int 21h
-    loop @@print_loop
-    pop dx
-    pop cx
-    pop bx
-    pop ax
-    ret
-PrintNum ENDP`;
 
-    // Standard TASM Read Number Procedure
-    const TASM_READ_NUM_PROC = `
-; -------------------------------------------------------------
-; Procedure: ReadNum
-; Reads multi-digit decimal integer from keyboard into AX
-; -------------------------------------------------------------
-ReadNum PROC
-    push bx
-    push cx
-    push dx
-    mov bx, 0       ; Result accumulator
-    mov cx, 0       ; Sign flag (0 = positive)
-@@read_char:
-    mov ah, 01h     ; Read char with echo
+print_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
     int 21h
-    cmp al, 0Dh     ; Enter key?
-    je @@done_read
-    cmp al, '-'     ; Minus sign?
-    jne @@process_digit
-    mov cx, 1
-    jmp @@read_char
-@@process_digit:
-    sub al, '0'     ; Convert ASCII to digit
-    mov ah, 0
-    push ax
-    mov ax, bx
-    mov dx, 10
-    mul dx          ; AX = BX * 10
-    mov bx, ax
-    pop ax
-    add bx, ax      ; BX = (BX * 10) + digit
-    jmp @@read_char
-@@done_read:
-    mov ax, bx
-    cmp cx, 1
-    jne @@exit_read
-    neg ax          ; Negate if negative
-@@exit_read:
-    pop dx
-    pop cx
-    pop bx
-    ret
-ReadNum ENDP`;
 
-    // Library of Assembly Templates with dynamic parameterization
-    const TEMPLATES = [
+    ; 6. Print newline
+    lea dx, crlf
+    mov ah, 09h
+    int 21h
+
+    ; Exit
+    mov ah, 4Ch
+    int 21h
+main ENDP
+END main`,
+                    differences: [
+                        "Input Mechanism: MASM Irvine32 provides 'ReadInt' which reads full multi-digit numbers directly into EAX; TASM uses DOS 'INT 21h (AH=01h)' to read keystroke ASCII characters and subtracts '0' (30h).",
+                        "Registers: MASM calculates using 32-bit registers (EAX); TASM calculates using 8-bit registers (AL) and 16-bit AX.",
+                        "Display: MASM uses 'WriteInt'; TASM divides by 10 to extract tens & units digits and prints them with DOS Function 02h."
+                    ]
+                };
+            }
+        },
+
         // 1. Hello World / Print String
         {
             id: 'print_string',
@@ -239,25 +299,38 @@ main PROC
     mov ah, 09h
     int 21h
 
-    ; Print decimal number
+    ; Print 2-digit decimal number (sum in AX)
     mov ax, sum
-    call PrintNum
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
+
+    ; Print tens digit
+    mov dl, bl
+    add dl, 30h         ; Convert to ASCII
+    mov ah, 02h
+    int 21h
+
+    ; Print units digit
+    mov dl, bh
+    add dl, 30h         ; Convert to ASCII
+    mov ah, 02h
+    int 21h
 
     ; Print Newline
     lea dx, crlf
     mov ah, 09h
     int 21h
 
-    ; Exit
+    ; Exit to DOS
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                     differences: [
                         "Data Types: MASM uses DWORD (32-bit, 4 bytes); TASM uses DW (Data Word, 16-bit, 2 bytes).",
                         "Registers: MASM adds using 32-bit register EAX; TASM uses 16-bit register AX.",
-                        "Output Method: MASM Irvine32 provides built-in 'call WriteInt'; TASM requires a custom numeric division procedure ('PrintNum') or DOS character printing."
+                        "Output Method: MASM Irvine32 provides built-in 'call WriteInt'; TASM prints digits directly via DOS INT 21h."
                     ]
                 };
             }
@@ -325,9 +398,24 @@ main PROC
     mov ah, 09h
     int 21h
 
-    ; Print result
+    ; Print 2-digit decimal result (0 to 99)
     mov ax, diff
-    call PrintNum
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
+
+    cmp bl, 0           ; Skip leading zero if tens == 0
+    je print_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+
+print_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     lea dx, crlf
     mov ah, 09h
@@ -336,8 +424,8 @@ main PROC
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
-END main`,
+END main
+`,
                     differences: [
                         "Flags Inspection: MASM Irvine32 has 'DumpRegs' which cleanly outputs CF, SF, ZF, OF, AF, PF; in standard TASM, inspecting flags requires pushf / pop to register or debugging with Turbo Debugger (TD).",
                         "Signed Arithmetic: In both architectures, subtracting larger from smaller sets the Carry Flag (CF=1 for unsigned borrow) and Sign Flag (SF=1)."
@@ -417,7 +505,23 @@ main PROC
     lea dx, msgQuot
     mov ah, 09h
     int 21h
-    call PrintNum
+
+    ; Print quotient in AX
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
+    cmp bl, 0
+    je p_quot_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+p_quot_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+
     lea dx, crlf
     mov ah, 09h
     int 21h
@@ -426,8 +530,23 @@ main PROC
     lea dx, msgRem
     mov ah, 09h
     int 21h
+
     pop ax              ; Restore remainder into AX
-    call PrintNum
+    mov bl, 10
+    div bl
+    mov bx, ax
+    cmp bl, 0
+    je p_rem_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+p_rem_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+
     lea dx, crlf
     mov ah, 09h
     int 21h
@@ -435,7 +554,6 @@ main PROC
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                         differences: [
                             "Dividend Register Pair: MASM uses 64-bit pair EDX:EAX divided by a 32-bit register; TASM uses 32-bit pair DX:AX divided by a 16-bit register.",
@@ -489,8 +607,21 @@ main PROC
     mov ah, 09h
     int 21h
 
-    ; AX contains lower 16-bits of product
-    call PrintNum
+    ; Print product in AX (0 to 99)
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
+    cmp bl, 0
+    je p_prod_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+p_prod_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     lea dx, crlf
     mov ah, 09h
@@ -499,7 +630,6 @@ main PROC
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                         differences: [
                             "Multiplication Sizing: MASM 32-bit MUL stores product in EDX:EAX (up to 64-bit); TASM 16-bit MUL stores product in DX:AX (up to 32-bit)."
@@ -630,8 +760,11 @@ main PROC
     mov ah, 09h
     int 21h
 
-    ; Call procedure to read decimal integer into AX
-    call ReadNum
+    ; Read single digit from user
+    mov ah, 01h
+    int 21h
+    sub al, '0'         ; Convert ASCII to number
+    mov ah, 0
 
     ; Multiply by 2
     shl ax, 1
@@ -643,7 +776,21 @@ main PROC
     int 21h
 
     pop ax
-    call PrintNum
+    ; Print result in AX
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
+    cmp bl, 0
+    je p_dbl_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+p_dbl_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     lea dx, crlf
     mov ah, 09h
@@ -652,8 +799,6 @@ main PROC
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_READ_NUM_PROC}
-${TASM_PRINT_NUM_PROC}
 END main`,
                         differences: [
                             "Multi-digit Input: MASM Irvine32 has a built-in 'ReadInt' routine. In TASM DOS assembly, you must parse individual keystroke ASCII digits ('0'-'9') in a loop (accumulating AX = AX * 10 + digit)."
@@ -827,8 +972,24 @@ display_result:
     mov ah, 09h
     int 21h
 
+    ; Self-contained decimal print (AX = max)
     mov ax, max
-    call PrintNum
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
+
+    cmp bl, 0           ; Skip leading zero if single digit
+    je print_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+
+print_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     lea dx, crlf
     mov ah, 09h
@@ -837,7 +998,6 @@ display_result:
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                         differences: [
                             "Conditional Jumps: 'JLE' (Jump if Less than or Equal) and 'JG' (Jump if Greater) are identical across x86-16 and x86-32 for signed values.",
@@ -900,7 +1060,23 @@ first_is_larger:
     int 21h
 
     pop ax
-    call PrintNum
+    ; Self-contained decimal print (AX = larger)
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
+
+    cmp bl, 0           ; Skip leading zero if single digit
+    je print_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+
+print_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     lea dx, crlf
     mov ah, 09h
@@ -909,11 +1085,10 @@ first_is_larger:
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                         differences: [
                             "Jump Instruction: JGE (Jump if Greater or Equal) handles signed comparisons in both MASM & TASM.",
-                            "TASM uses PrintNum subroutine; MASM uses Irvine32 WriteInt."
+                            "TASM prints digits directly via DOS INT 21h; MASM uses Irvine32 WriteInt."
                         ]
                     };
                 }
@@ -972,10 +1147,24 @@ main PROC
     mov cx, ${count}   ; 16-bit loop counter in CX
 
 print_loop:
-    push cx             ; Save loop counter before subroutine call
+    push cx             ; Save loop counter
 
+    ; Print counter (0 to 99)
     mov ax, counter
-    call PrintNum
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
+    cmp bl, 0
+    je p_cnt_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+p_cnt_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     lea dx, space
     mov ah, 09h
@@ -992,7 +1181,6 @@ print_loop:
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                     differences: [
                         "Loop Counter Register: MASM uses 32-bit ECX; TASM uses 16-bit CX for the 'LOOP' instruction.",
@@ -1082,11 +1270,27 @@ sum_loop:
 
     push ax                     ; Save sum
 
-    ; Print Sum
+    ; Print Sum in AX (multi-digit)
     lea dx, sumMsg
     mov ah, 09h
     int 21h
-    call PrintNum
+
+    mov cx, 0
+    mov bx, 10
+p_sum_div:
+    mov dx, 0
+    div bx
+    push dx
+    inc cx
+    cmp ax, 0
+    jne p_sum_div
+p_sum_print:
+    pop dx
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+    loop p_sum_print
+
     lea dx, crlf
     mov ah, 09h
     int 21h
@@ -1103,7 +1307,23 @@ sum_loop:
     mov ah, 09h
     int 21h
     pop ax
-    call PrintNum
+
+    mov cx, 0
+    mov bx, 10
+p_avg_div:
+    mov dx, 0
+    div bx
+    push dx
+    inc cx
+    cmp ax, 0
+    jne p_avg_div
+p_avg_print:
+    pop dx
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+    loop p_avg_print
+
     lea dx, crlf
     mov ah, 09h
     int 21h
@@ -1111,7 +1331,6 @@ sum_loop:
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                     differences: [
                         "Pointer Arithmetic: MASM DWORDs are 4 bytes each ('add esi, 4' or 'TYPE array'); TASM DW (words) are 2 bytes each ('add si, 2').",
@@ -1200,7 +1419,22 @@ skip_update:
     mov ah, 09h
     int 21h
     pop ax
-    call PrintNum
+
+    ; Print element in AX (0 to 99)
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
+    cmp bl, 0
+    je p_arr_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+p_arr_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     lea dx, crlf
     mov ah, 09h
@@ -1209,7 +1443,6 @@ skip_update:
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                     differences: [
                         "Size Increment: 'add esi, 4' (MASM 32-bit DWORD) vs 'add si, 2' (TASM 16-bit WORD).",
@@ -1629,7 +1862,21 @@ no_swap:
 print_loop:
     push cx
     mov ax, [si]
-    call PrintNum
+    mov bl, 10
+    div bl
+    mov bx, ax
+    cmp bl, 0
+    je p_sort_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+p_sort_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+
     lea dx, space
     mov ah, 09h
     int 21h
@@ -1644,7 +1891,6 @@ print_loop:
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                     differences: [
                         "Element Offset: MASM uses '[esi + 4]' for adjacent elements; TASM uses '[si + 2]' for adjacent 16-bit words.",
@@ -1718,8 +1964,23 @@ fact_loop:
     mov ah, 09h
     int 21h
 
+    ; Print result in AX (multi-digit)
     mov ax, result
-    call PrintNum
+    mov cx, 0
+    mov bx, 10
+p_fact_div:
+    mov dx, 0
+    div bx
+    push dx
+    inc cx
+    cmp ax, 0
+    jne p_fact_div
+p_fact_print:
+    pop dx
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+    loop p_fact_print
 
     lea dx, crlf
     mov ah, 09h
@@ -1728,7 +1989,6 @@ fact_loop:
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                     differences: [
                         "Integer Overflow Threshold: 16-bit TASM registers overflow at 8! (40,320 > 65,535 for 16-bit unsigned); 32-bit MASM registers can calculate up to 12! without overflow.",
@@ -1812,7 +2072,21 @@ fib_loop:
     push bx
     push cx
 
-    call PrintNum
+    ; Print term in AX (0 to 99)
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
+    cmp bl, 0
+    je p_fib_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+p_fib_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     lea dx, space
     mov ah, 09h
@@ -1836,7 +2110,6 @@ fib_loop:
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                     differences: [
                         "Register Usage: MASM uses EAX, EBX, EDX, ECX; TASM uses 16-bit AX, BX, DX, CX.",
@@ -1921,7 +2194,18 @@ main PROC
     pop bx
     pop ax
 
-    call PrintNum
+    ; Print AX
+    mov bl, 10
+    div bl
+    mov dl, bl
+    add dl, '0'
+    mov dh, ah          ; Save units
+    mov ah, 02h
+    int 21h
+    mov dl, dh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     push bx
     lea dx, msgAnd
@@ -1929,7 +2213,19 @@ main PROC
     int 21h
     pop bx
     mov ax, bx
-    call PrintNum
+
+    ; Print BX
+    mov bl, 10
+    div bl
+    mov dl, bl
+    add dl, '0'
+    mov dh, ah
+    mov ah, 02h
+    int 21h
+    mov dl, dh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     ; Execute Swap
     mov ax, ${n1}
@@ -1944,7 +2240,18 @@ main PROC
     pop bx
     pop ax
 
-    call PrintNum
+    ; Print AX
+    mov bl, 10
+    div bl
+    mov dl, bl
+    add dl, '0'
+    mov dh, ah
+    mov ah, 02h
+    int 21h
+    mov dl, dh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     push bx
     lea dx, msgAnd
@@ -1952,7 +2259,19 @@ main PROC
     int 21h
     pop bx
     mov ax, bx
-    call PrintNum
+
+    ; Print BX
+    mov bl, 10
+    div bl
+    mov dl, bl
+    add dl, '0'
+    mov dh, ah
+    mov ah, 02h
+    int 21h
+    mov dl, dh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     lea dx, crlf
     mov ah, 09h
@@ -1961,7 +2280,6 @@ main PROC
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                     differences: [
                         "Instruction: 'xchg' is supported identically in both 32-bit and 16-bit x86.",
@@ -2059,8 +2377,11 @@ is_found:
     mov ah, 09h
     int 21h
 
-    mov ax, bx              ; Index to AX
-    call PrintNum
+    ; Print index in BX (0 to 9)
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     lea dx, crlf
     mov ah, 09h
@@ -2070,7 +2391,6 @@ finish:
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                     differences: [
                         "Index Stepping: 'add esi, 4' (32-bit DWORD) in MASM vs 'add si, 2' (16-bit WORD) in TASM.",
@@ -2184,8 +2504,22 @@ print_result:
     mov ah, 09h
     int 21h
 
+    ; Print count in AX (0 to 99)
     mov ax, vowelCount
-    call PrintNum
+    mov bl, 10
+    div bl
+    mov bx, ax
+    cmp bl, 0
+    je p_vow_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+p_vow_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
 
     lea dx, crlf
     mov ah, 09h
@@ -2194,7 +2528,6 @@ print_result:
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
 END main`,
                     differences: [
                         "Character Comparison: 'or al, 20h' sets bit 5, transforming uppercase ASCII ('A'-'Z') to lowercase ('a'-'z') with a single instruction.",
@@ -2310,9 +2643,9 @@ END main`,
             opName = "IMUL"; verb = "Multiply"; symbol = "*";
         } else if (/div|quotient/i.test(cleaned)) {
             opName = "DIV"; verb = "Divide"; symbol = "/";
-        } else if (/and|bitwise and/i.test(cleaned)) {
+        } else if (/\bbitwise\s+and\b|\band\s+op|\bop\s+and\b/i.test(cleaned)) {
             opName = "AND"; verb = "Bitwise AND"; symbol = "&";
-        } else if (/or|bitwise or/i.test(cleaned)) {
+        } else if (/\bbitwise\s+or\b|\bor\s+op|\bop\s+or\b/i.test(cleaned)) {
             opName = "OR"; verb = "Bitwise OR"; symbol = "|";
         } else if (/xor/i.test(cleaned)) {
             opName = "XOR"; verb = "Bitwise XOR"; symbol = "^";
@@ -2372,19 +2705,36 @@ main PROC
     mov ah, 09h
     int 21h
 
-    ; Print result
+    ; Self-contained decimal print (0 to 99)
     mov ax, result
-    call PrintNum
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
 
+    cmp bl, 0           ; Skip leading zero if tens == 0
+    je print_units
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+
+print_units:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+
+    ; Print newline
     lea dx, crlf
     mov ah, 09h
     int 21h
 
+    ; Exit to DOS
     mov ah, 4Ch
     int 21h
 main ENDP
-${TASM_PRINT_NUM_PROC}
-END main`,
+END main
+`,
             differences: [
                 `Instruction Set: MASM executes '${opName}' with 32-bit registers (EAX); TASM executes with 16-bit registers (AX).`,
                 `Memory Model: MASM uses flat memory with Irvine32 runtime; TASM requires small model with '@data' initialization.`,
@@ -2442,9 +2792,56 @@ END main`,
         ];
     }
 
+    /**
+     * Auto-fix any TASM code: replaces missing 'call PrintNum' with self-contained inline code
+     * and guarantees proper 'END main' termination with newline for DOSBox.
+     */
+    function fixTasmCode(code) {
+        if (!code || typeof code !== 'string') return code;
+        let fixed = code;
+
+        // 1. Replace any 'call PrintNum' with self-contained inline decimal print
+        const printNumRegex = /\bcall\s+PrintNum\b/gi;
+        if (printNumRegex.test(fixed)) {
+            let counter = 0;
+            fixed = fixed.replace(printNumRegex, () => {
+                counter++;
+                const suf = counter > 1 ? `_${counter}` : '';
+                return `; [Auto-Fixed] Self-contained decimal print (0 to 99)
+    mov bl, 10
+    div bl              ; AL = tens, AH = units
+    mov bx, ax
+    cmp bl, 0           ; Skip leading zero if single digit
+    je p_fix_units${suf}
+    mov dl, bl
+    add dl, '0'
+    mov ah, 02h
+    int 21h
+p_fix_units${suf}:
+    mov dl, bh
+    add dl, '0'
+    mov ah, 02h
+    int 21h`;
+            });
+        }
+
+        // 2. Remove orphan PrintNum PROC if left at bottom
+        fixed = fixed.replace(/;?\s*-*\s*Procedure:\s*PrintNum[\s\S]*?PrintNum\s+ENDP/gi, '');
+
+        // 3. Ensure 'END main' is cleanly present and followed by newline
+        if (!/END\s+main/i.test(fixed)) {
+            fixed = fixed.trim() + "\nEND main\n";
+        } else {
+            fixed = fixed.replace(/END\s+main[\s\S]*$/i, 'END main\n');
+        }
+
+        return fixed;
+    }
+
     return {
         generate: generateAssembly,
         getExamples: getExamples,
+        fixTasm: fixTasmCode,
         templates: TEMPLATES
     };
 }));

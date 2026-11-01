@@ -99,6 +99,22 @@
             }
         },
         {
+            "label": "TASM: Auto-Fix Current File (PrintNum & EOF)",
+            "type": "shell",
+            "command": "node",
+            "args": ["${workspaceFolder}/ai.js", "--fix", "${file}"],
+            "windows": {
+                "command": "node",
+                "args": ["${workspaceFolder}\\ai.js", "--fix", "${file}"]
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            }
+        },
+        {
             "label": "AI: Generate MASM & TASM Code (Offline)",
             "type": "shell",
             "command": "node",
